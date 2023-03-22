@@ -1,0 +1,216 @@
+﻿---
+ID: "0951e554-3251-4f8d-be41-680d5ad53d4f"
+Parent: "1d621d57-da2a-46a7-9d3a-e0397450cf96"
+Template: "dd22f1b3-bd87-4db2-9e7d-f7a496888d43"
+Path: /sitecore/system/Modules/PowerShell/Script Library/GPT Translate/Content Editor/Context Menu/Translate Content
+SharedFields:
+- ID: "b1a94ff0-6897-47c0-9c51-aa6acb80b1f0"
+  Hint: Script
+  Value: |
+    #Grab the Context Item
+    $sourceItem = Get-Item .
+    
+    #Load our Settings including Languages and Fields to Translate
+    $settings = Get-Item  "master:\sitecore\system\Modules\GPT Translation\GPT Translate Settings" -Language "en"
+    
+    $apiKey = $settings["API Key"]
+    
+    $filterFields = ([Sitecore.Data.Fields.MultilistField]$settings.Fields["Fields To Translate"]).GetItems()
+    
+    $commonLanguages =  Get-ChildItem  -Item $settings -Language "en"
+    
+    $fieldsOptions = @{}
+    
+    $filterFields | ForEach-Object {
+        $fieldsOptions.Add($_.Name, $_.ID)
+    }
+    
+    #Grab languages from the system
+    $languages = Get-ChildItem  "master:\sitecore\system\Languages" -Language "en"
+    
+    $languageOptions = @{}
+    
+    $languages | ForEach-Object {
+        $languageOptions.Add($_.Name, $_.Name)
+    }
+    
+    #Remove Current Language
+    $languageOptions.Remove($SitecoreContextItem.Language.Name)
+    
+    $props = @{
+        Parameters = @(
+            @{Name="fieldsToTranslateOption"; Editor="Checklist"; Title="Choose which fields to translate"; Options=$fieldsOptions; Tooltip="This list is configurable."}
+            @{Name="languagesToTranslateOption"; Title="Choose which language to translate to."; Options=$languageOptions}
+    
+        )
+        Title = "GPT Translation"
+        Description = "Choose the right option."
+        Width = 600
+        Height = 400
+        ShowHints = $true
+    }
+    
+    $res = Read-Variable @props
+    
+    #We need to map our ISO Code (es-MX) to a friendly language (Spanish)
+    $commonLanguages | Foreach-Object {
+        
+        $langCode = (Get-Item $_["Language"]).Name
+        
+        if($langCode -eq $languagesToTranslateOption)
+        {
+            $commonLang = $_.Name
+        }
+        
+    }
+    
+    Write-Host "API Key:" $apiKey
+    Write-Host "Fields to Translate:" $fieldsToTranslateOption
+    Write-Host "Current Language:" $SitecoreContextItem.Language.Name
+    Write-Host "Selected Language:" $languagesToTranslateOption
+    Write-Host "Selected Language (Common):" $commonLang 
+    Write-Host "Translating for: " $sourceItem.Name
+    Write-Host "Filter Count: " $filterFields.Count.ToString()
+    
+    #If we didn't click OK, then it isn't OK!
+    if($res -ne "ok")
+    {
+        Show-Alert "Aborted"
+        Exit
+    }
+    
+    #we need to make sure all the fields to translate exist on this item and remove the ones that don't
+    $filteredFields = New-Object -TypeName 'System.Collections.ArrayList'
+    
+    $sourceItem.Fields | ForEach-Object {
+        $sourceField = $_
+        
+        
+        $filterFields | ForEach-Object { 
+            
+            if($_.ID -eq $sourceField.ID)
+            {
+                Write-Host "Found" $_.Name
+                $filteredFields.Add($_)
+            }
+        }
+    }
+    
+    Write-Host "Translatable Fields Count: " $filteredFields.Count.ToString()
+    
+    #Using our fields, let's create a list of translation objects we'll iterate through
+    $translations = New-Object -TypeName 'System.Collections.ArrayList'
+    
+    $filteredFields | ForEach-Object {
+    
+         $fieldDef = Get-Item -Path master: -ID $_.ID
+        
+        $translationItem = @{
+            FieldID = $_.ID
+            Untranslated = $sourceItem.Fields[$_.ID].Value
+            Translated = ""
+            FieldType = $fieldDef.Type        
+            
+        }
+            
+        $translations.Add($translationItem)
+        
+    }
+    
+    #Do the translation and save the text!
+    $translations | ForEach-Object {
+    
+        $translationAsk = "Text"
+    
+        #If you don't tell ChatGPT to translate something as HTML, it will break your styles (style="color: blue;" turns into style="color: azul;")
+        if($_.FieldType -eq "Rich Text")
+        {
+            $translationAsk = "HTML"
+        }
+        
+        $headers = @{
+           Authorization = "Bearer " + $apiKey
+        }
+        
+        #Generate our prompt
+        #Translate the following Text/HTML to Spanish 'blah blah'
+        $data = @{
+            model = "gpt-3.5-turbo"
+            messages = @(
+                @{
+                    role = "user"
+                    content = "Translate the following " + $translationAsk + " to " + $commonLang + " `"" + $_.Untranslated + "`""
+                }
+            )
+        
+        }
+        
+        $Params = @{
+            Method = "POST"
+            Headers = $headers
+            
+            Body = $data | ConvertTo-Json
+            Uri = "https://api.openai.com/v1/chat/completions"
+            ContentType = "application/json; charset=utf-8"
+        }
+        
+        $result = (Invoke-RestMethod @Params).choices[0]
+        
+        $_.Translated = $result.message.content
+    }
+    
+    
+    $targetItem = Add-ItemVersion -Item $sourceItem -TargetLanguage $languagesToTranslateOption
+    
+    $targetItem.Editing.BeginEdit()
+    
+    
+    $translations | ForEach-Object {
+    
+        Write-Host "Source:" $_.Untranslated
+        Write-Host "Dest:" $_.Translated
+        
+        #we need to fix some encoding shenanigans
+        $bytes = [System.Text.Encoding]::GetEncoding(1252).GetBytes($_.Translated);
+        
+        $fixed = [System.Text.Encoding]::UTF8.GetString($bytes).Trim();
+        
+        #Sometimes ChatGPT wraps our output in quotes...this nukes them
+        if($fixed[0] -eq "`"" -and $fixed[$fixed.Length] -eq "`"")
+        {
+            $fixed = $fixed.Substring(1, $fixed.Length -1).Trim() 
+        }
+        
+        Write-Host "Fixed:" $fixed
+        
+        $targetItem[$_.FieldID] = $fixed
+    }
+    
+    $targetItem.Editing.EndEdit()
+    
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20230321T201530Z
+    - ID: "52807595-0f8f-4b20-8d2a-cb71d28c6103"
+      Hint: __Owner
+      Value: |
+        sitecore\Admin
+    - ID: "5dd74568-4d4b-44c1-b513-0af5f4cda34f"
+      Hint: __Created by
+      Value: |
+        sitecore\Admin
+    - ID: "8cdc337e-a112-42fb-bbb4-4143751e123f"
+      Hint: __Revision
+      Value: "f480a5a5-0352-42c5-ab28-0eab3e747c96"
+    - ID: "badd9cf9-53e0-4d0c-bcc0-2d784c282f6a"
+      Hint: __Updated by
+      Value: |
+        sitecore\Admin
+    - ID: "d9cf14b1-fa16-4ba6-9288-e8a174d4d522"
+      Hint: __Updated
+      Value: 20230322T222549Z

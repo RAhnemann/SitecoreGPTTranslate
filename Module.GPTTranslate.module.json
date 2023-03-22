@@ -1,0 +1,41 @@
+{
+  "namespace": "Modules.GPT.Translate",
+  "items": {
+    "includes": [
+      {
+        "allowedPushOperations": "createOnly",
+        "name": "module-settings-folder",
+        "path": "/sitecore/system/Modules/GPT Translation",
+        "scope": "singleItem",
+        "database": "master"
+      },
+      {
+        "allowedPushOperations": "createAndUpdate",
+        "name": "module-settings-item",
+        "path": "/sitecore/system/Modules/GPT Translation/GPT Translate Settings",
+        "scope": "singleItem",
+        "database": "master"
+      },
+      {
+        "allowedPushOperations": "createUpdateAndDelete",
+        "name": "templates",
+        "path": "/sitecore/templates/Modules/GPT Translate",
+        "scope": "itemAndDescendants",
+        "database": "master"
+      },
+      {
+        "allowedPushOperations": "createUpdateAndDelete",
+        "name": "ps-library",
+        "path": "/sitecore/system/Modules/PowerShell/Script Library/GPT Translate",
+        "scope": "itemAndDescendants",
+        "database": "master"
+      }
+    ],
+    "excludedFields": [
+      {
+        "fieldID": "{8765A62B-CD03-442E-9F7B-BBB038C287F8}",
+        "description": "APIKey"
+      }
+    ]
+  }
+}

@@ -1,0 +1,36 @@
+﻿---
+ID: "2ad71d79-8c88-4fb0-afbb-e101acc99a2f"
+Parent: "c63b9733-3cbc-4511-a919-4f384d9be072"
+Template: "6f42edd3-b26f-4805-b115-1ab045b1e4ad"
+Path: /sitecore/system/Modules/GPT Translation/GPT Translate Settings
+Languages:
+- Language: en
+  Versions:
+  - Version: 1
+    Fields:
+    - ID: "25bed78c-4957-4165-998a-ca1b52f67497"
+      Hint: __Created
+      Value: 20230321T181315Z
+    - ID: "52807595-0f8f-4b20-8d2a-cb71d28c6103"
+      Hint: __Owner
+      Value: |
+        sitecore\Admin
+    - ID: "5dd74568-4d4b-44c1-b513-0af5f4cda34f"
+      Hint: __Created by
+      Value: |
+        sitecore\Admin
+    - ID: "8cdc337e-a112-42fb-bbb4-4143751e123f"
+      Hint: __Revision
+      Value: "7dcb30cd-30e9-4a35-b803-9a3023028ed3"
+    - ID: "badd9cf9-53e0-4d0c-bcc0-2d784c282f6a"
+      Hint: __Updated by
+      Value: |
+        sitecore\Admin
+    - ID: "d9cf14b1-fa16-4ba6-9288-e8a174d4d522"
+      Hint: __Updated
+      Value: 20230322T154354Z
+    - ID: "ffc78c18-4bc3-4d3c-b772-c7e8abd3e3f6"
+      Hint: Fields To Translate
+      Value: |
+        {75577384-3C97-45DA-A847-81B00500E250}
+        {A60ACD61-A6DB-4182-8329-C957982CEC74}
